@@ -1,3 +1,24 @@
-.venv
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Environment
 .env
-__pycache__
+.env.*
+
+# Allow example environment file
+!.env.example
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
