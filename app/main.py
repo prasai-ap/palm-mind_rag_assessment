@@ -1,14 +1,52 @@
+from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
+from sqlalchemy import text
 
 from app.core.config import get_settings
+from app.core.redis import redis_client, close_redis
+from app.database.session import engine
+from app.services.qdrant_service import (
+    qdrant_client,
+    close_qdrant,
+)
+
 
 settings = get_settings()
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Manage application startup and shutdown."""
+
+    # Startup: verify infrastructure connections.
+    async with engine.connect() as connection:
+        await connection.execute(text("SELECT 1"))
+
+    await redis_client.ping()
+    await qdrant_client.get_collections()
+
+    print("PostgreSQL connected.")
+    print("Redis connected.")
+    print("Qdrant connected.")
+
+    yield
+
+    # Shutdown: close infrastructure connections.
+    await engine.dispose()
+    await close_redis()
+    await close_qdrant()
+
+    print("Infrastructure connections closed.")
+
+
 app = FastAPI(
-    title="Palm Mind RAG API",
-    description="Document ingestion and conversational RAG backend",
-    version="0.1.0",
+    title=settings.app_name,
+    description="Document ingestion and conversational RAG API",
+    version="1.0.0",
+    debug=settings.debug,
+    lifespan=lifespan,
 )
 
 
