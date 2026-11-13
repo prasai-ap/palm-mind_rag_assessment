@@ -5,7 +5,9 @@ click==8.5.1
 colorama==0.4.6
 fastapi==0.162.5
 h11==0.16.0
+httpcore2==2.16.0
 httptools==0.9.0
+httpx2==2.16.0
 idna==3.20
 iniconfig==2.3.1
 opentelemetry-api==1.45.2
@@ -21,6 +23,7 @@ python-dotenv==1.2.4
 python-multipart==0.0.33
 PyYAML==6.0.3
 starlette==1.10.0
+truststore==0.10.5
 typing-inspection==0.4.5
 typing_extensions==4.16.0
 uvicorn==0.54.0
