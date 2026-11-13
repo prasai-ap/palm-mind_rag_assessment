@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     debug: bool = True
 
     database_url: str = (
-        "postgresql+psycopg://postgres:postgres@localhost:5432/palm_mind"
+        "postgresql+asyncpg://postgres:local_dev_password@localhost:5432/palm_mind"
     )
     redis_url: str = "redis://localhost:6379/0"
     qdrant_url: str = "http://localhost:6333"
