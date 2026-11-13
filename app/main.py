@@ -14,7 +14,4 @@ app = FastAPI(
 
 @app.get("/health")
 async def health_check() -> dict[str, str]:
-    return {
-        "status": "healthy",
-        "application": "Palm Mind RAG API",
-    }
+    return {"status": "healthy"}
