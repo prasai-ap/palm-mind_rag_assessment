@@ -1,6 +1,10 @@
 
 from fastapi import FastAPI
 
+from app.core.config import get_settings
+
+settings = get_settings()
+
 app = FastAPI(
     title="Palm Mind RAG API",
     description="Document ingestion and conversational RAG backend",
