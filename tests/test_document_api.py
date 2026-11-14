@@ -195,7 +195,7 @@ def test_upload_document_metadata_failure_cleans_qdrant(monkeypatch):
 
     mock_cleanup.assert_awaited_once()
 
-    cleanup_uuid = mock_cleanup.await_args.kwargs["document_uuid"]
+    cleanup_uuid = mock_cleanup.await_args.args[0]
     assert cleanup_uuid
 
 
