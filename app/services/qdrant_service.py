@@ -93,6 +93,26 @@ async def store_chunks(
 
     print(f"Successfully stored {len(points)} chunks in Qdrant.")
 
+async def delete_document_chunks(document_uuid: str) -> None:
+    if not document_uuid.strip():
+        raise ValueError("Document UUID cannot be empty.")
+
+    await qdrant_client.delete(
+        collection_name=settings.qdrant_collection_name,
+        points_selector=models.FilterSelector(
+            filter=models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="document_uuid",
+                        match=models.MatchValue(value=document_uuid),
+                    )
+                ]
+            )
+        ),
+        wait=True,
+    )
+
+    print(f"Deleted Qdrant chunks for document: {document_uuid}")
 
 async def close_qdrant() -> None:
     """Close the Qdrant client connection."""
