@@ -13,7 +13,7 @@ from app.services.qdrant_service import (
 )
 
 from app.api.documents import router as documents_router
-
+from app.api.conversation import router as conversation_router
 
 settings = get_settings()
 
@@ -53,6 +53,7 @@ app = FastAPI(
 
 app.include_router(documents_router)
 
+app.include_router(conversation_router)
 
 @app.get("/health")
 async def health_check() -> dict[str, str]:
