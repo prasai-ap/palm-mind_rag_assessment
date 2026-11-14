@@ -49,6 +49,7 @@ Pygments==2.21.0
 pypdf==7.1.0
 pytest==9.2.0
 python-dotenv==1.2.4
+python-multipart==0.0.33
 pywin32==312
 PyYAML==6.0.3
 qdrant-client==1.15.1
