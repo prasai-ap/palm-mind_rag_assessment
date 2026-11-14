@@ -46,7 +46,10 @@ Rules:
 11. Never interpret providing personal details as confirmation.
 12. Never interpret the assistant's own message as user confirmation.
 13. If confirmation is ambiguous, return false.
-
+14. If previous conversation messages establish an active interview
+    booking request, preserve booking_requested as true when the latest
+    user message provides missing details or confirms the booking.
+    
 CONVERSATION HISTORY:
 {history_text or "No previous conversation."}
 
