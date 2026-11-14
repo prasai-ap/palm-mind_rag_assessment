@@ -40,13 +40,16 @@ async def create_collection() -> None:
 async def store_chunks(
     chunks: list[DocumentChunk],
     vectors: list[list[float]],
+    document_uuid:str,
 ) -> None:
     """
     Store document chunks and their corresponding vectors in Qdrant.
 
     Each vector is stored with its original document metadata.
     """
-
+    if not document_uuid.strip():
+        raise ValueError("Document UUID cannot be empty.")
+    
     if not chunks:
         raise ValueError("At least one document chunk is required.")
 
@@ -73,6 +76,7 @@ async def store_chunks(
                 id=str(uuid4()),
                 vector=vector,
                 payload={
+                    "document_uuid": document_uuid,
                     "filename": chunk.filename,
                     "page_number": chunk.page_number,
                     "chunk_index": chunk.chunk_index,

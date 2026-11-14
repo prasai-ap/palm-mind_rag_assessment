@@ -11,6 +11,11 @@ from app.services.qdrant_service import (
 )
 from app.core.config import get_settings
 
+from qdrant_client import models
+
+from uuid import uuid4
+
+document_uuid = str(uuid4())
 
 async def main() -> None:
     settings = get_settings()
@@ -52,11 +57,20 @@ async def main() -> None:
         await store_chunks(
             chunks=chunks,
             vectors=vectors,
+            document_uuid=document_uuid,
         )
 
         # 5. Verify stored points.
         result = await qdrant_client.scroll(
             collection_name=settings.qdrant_collection_name,
+            scroll_filter=models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="document_uuid",
+                        match=models.MatchValue(value=document_uuid),
+                    )
+                ]
+            ),
             limit=len(chunks),
             with_payload=True,
             with_vectors=False,
@@ -68,11 +82,13 @@ async def main() -> None:
 
         for point in stored_points:
             print("\nPoint ID:", point.id)
+            print("Document UUID:", point.payload.get("document_uuid"))
             print("Filename:", point.payload["filename"])
             print("Page:", point.payload["page_number"])
             print("Chunk index:", point.payload["chunk_index"])
             print("Text:", point.payload["text"])
-
+            assert point.payload.get("document_uuid") == document_uuid
+        
         assert len(stored_points) >= len(chunks)
 
         print("\nQdrant storage verification successful!")

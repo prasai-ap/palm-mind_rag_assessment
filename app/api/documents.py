@@ -10,6 +10,9 @@ from app.services.chunking import chunk_document
 from app.services.embedding_service import embed_texts
 from app.services.qdrant_service import store_chunks
 
+from uuid import uuid4
+
+document_uuid= str(uuid4())
 
 router = APIRouter(
     prefix="/documents",
@@ -63,6 +66,7 @@ async def upload_document(
         await store_chunks(
             chunks=chunks,
             vectors=vectors,
+            document_uuid=document_uuid,
         )
 
         return DocumentUploadResponse(
