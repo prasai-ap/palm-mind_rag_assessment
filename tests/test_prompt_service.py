@@ -87,3 +87,33 @@ def test_empty_question_raises_error(
 ) -> None:
     with pytest.raises(ValueError, match="Question cannot be empty"):
         build_rag_prompt("   ", sample_chunks)
+
+def test_prompt_includes_conversation_history():
+    prompt = build_rag_prompt(
+        question="What about its applications?",
+        retrieved_chunks=[],
+        conversation_history=[
+            {
+                "role": "user",
+                "content": "What is machine learning?",
+            },
+            {
+                "role": "assistant",
+                "content": "It allows computers to learn from data.",
+            },
+        ],
+    )
+
+    assert "What is machine learning?" in prompt
+    assert "It allows computers to learn from data." in prompt
+    assert "What about its applications?" in prompt
+
+
+def test_prompt_without_history():
+    prompt = build_rag_prompt(
+        question="What is machine learning?",
+        retrieved_chunks=[],
+    )
+
+    assert "No previous conversation." in prompt
+    assert "What is machine learning?" in prompt
