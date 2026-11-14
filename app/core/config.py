@@ -23,6 +23,9 @@ class Settings(BaseSettings):
     qdrant_url: str = "http://localhost:6333"
 
     gemini_api_key: SecretStr | None = None
+    
+    embedding_model: str = "gemini-embedding-001"
+    embedding_dimension: int = 768
 
 
 @lru_cache
