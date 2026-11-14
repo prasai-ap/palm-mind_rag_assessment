@@ -382,8 +382,3 @@ The test suite covers document processing, chunking, API behavior, embeddings an
 This project focuses on backend APIs and AI/RAG functionality. It does not include a frontend interface.
 
 The implementation is designed as an internship technical assessment project demonstrating document ingestion, semantic retrieval, conversational AI, database integration, and modular backend development.
-
-## Author
-
-**Aayus Prasai**
-GitHub: [github.com/prasai-ap](https://github.com/prasai-ap)
