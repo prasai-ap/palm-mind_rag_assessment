@@ -1,86 +1,93 @@
 
+from unittest.mock import AsyncMock
+
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.api import documents as document_api
-from app.services.document_processor import ExtractedPage
-from app.schemas.document import DocumentChunk
+from app.database.session import get_db
 
 
 client = TestClient(app)
 
 
-def test_successful_document_upload(
-    monkeypatch,
-) -> None:
-    # Mock document extraction.
-    def mock_extract_document(
-        file_content: bytes,
-        filename: str,
-    ) -> list[ExtractedPage]:
-        return [
-            ExtractedPage(
-                filename=filename,
-                page_number=None,
-                text="Machine learning helps doctors identify diseases.",
-            )
-        ]
+async def override_get_db():
+    yield None
 
-    # Mock chunking.
-    def mock_chunk_document(
-        pages: list[ExtractedPage],
-        strategy: str,
-    ) -> list[DocumentChunk]:
-        return [
-            DocumentChunk(
-                filename="sample.txt",
-                page_number=None,
-                chunk_index=0,
-                text="Machine learning helps doctors identify diseases.",
-            )
-        ]
 
-    # Mock embedding generation.
-    async def mock_embed_texts(
-        texts: list[str],
-        task_type: str,
-    ) -> list[list[float]]:
+app.dependency_overrides[get_db] = override_get_db
+
+
+def mock_document_pipeline(monkeypatch):
+    async def mock_embed_texts(**kwargs):
         return [[0.1] * 768]
 
-    # Mock Qdrant storage.
-    async def mock_store_chunks(
-        chunks: list[DocumentChunk],
-        vectors: list[list[float]],
-    ) -> None:
-        assert len(chunks) == len(vectors)
+    async def mock_store_chunks(**kwargs):
+        return None
+
+    async def mock_create_document(**kwargs):
+        return None
+
+    async def mock_delete_document_chunks(**kwargs):
+        return None
 
     monkeypatch.setattr(
-        document_api,
-        "extract_document",
-        mock_extract_document,
+        "app.api.documents.extract_document",
+        lambda **kwargs: [
+            type(
+                "Page",
+                (),
+                {
+                    "filename": "sample.txt",
+                    "page_number": 1,
+                    "text": "Sample document content.",
+                },
+            )()
+        ],
     )
+
     monkeypatch.setattr(
-        document_api,
-        "chunk_document",
-        mock_chunk_document,
+        "app.api.documents.chunk_document",
+        lambda **kwargs: [
+            type(
+                "Chunk",
+                (),
+                {
+                    "filename": "sample.txt",
+                    "page_number": 1,
+                    "chunk_index": 0,
+                    "text": "Sample document content.",
+                },
+            )()
+        ],
     )
+
     monkeypatch.setattr(
-        document_api,
-        "embed_texts",
+        "app.api.documents.embed_texts",
         mock_embed_texts,
     )
     monkeypatch.setattr(
-        document_api,
-        "store_chunks",
+        "app.api.documents.store_chunks",
         mock_store_chunks,
     )
+    monkeypatch.setattr(
+        "app.api.documents.create_document",
+        mock_create_document,
+    )
+    monkeypatch.setattr(
+        "app.api.documents.delete_document_chunks",
+        mock_delete_document_chunks,
+    )
+
+
+def test_upload_document_success(monkeypatch):
+    mock_document_pipeline(monkeypatch)
 
     response = client.post(
         "/documents/upload",
         files={
             "file": (
                 "sample.txt",
-                b"Machine learning helps doctors identify diseases.",
+                b"Sample document content.",
                 "text/plain",
             )
         },
@@ -89,46 +96,139 @@ def test_successful_document_upload(
 
     assert response.status_code == 200
 
-    result = response.json()
+    data = response.json()
 
-    assert result["filename"] == "sample.txt"
-    assert result["pages_extracted"] == 1
-    assert result["chunks_created"] == 1
-    assert result["vectors_stored"] == 1
-    assert result["chunking_strategy"] == "recursive"
+    assert data["filename"] == "sample.txt"
+    assert data["pages_extracted"] == 1
+    assert data["chunks_created"] == 1
+    assert data["vectors_stored"] == 1
+    assert data["chunking_strategy"] == "recursive"
+    assert data["document_uuid"]
 
 
-def test_empty_document_upload() -> None:
-    response = client.post(
-        "/documents/upload",
-        files={
-            "file": ("empty.txt", b"", "text/plain")
-        },
+def test_upload_document_rejects_unsupported_file(monkeypatch):
+    mock_document_pipeline(monkeypatch)
+
+    def mock_extract_document(**kwargs):
+        raise ValueError("Unsupported file type: .docx")
+
+    monkeypatch.setattr(
+        "app.api.documents.extract_document",
+        mock_extract_document,
     )
 
-    assert response.status_code == 400
-    assert "empty" in response.json()["detail"].lower()
-
-
-def test_unsupported_file_type() -> None:
     response = client.post(
         "/documents/upload",
         files={
-            "file": ("sample.docx", b"some content", "application/octet-stream")
+            "file": (
+                "sample.docx",
+                b"Unsupported content",
+                "application/octet-stream",
+            )
         },
+        data={"strategy": "recursive"},
     )
 
     assert response.status_code == 400
     assert "Unsupported file type" in response.json()["detail"]
 
 
-def test_invalid_chunking_strategy() -> None:
+def test_upload_document_embedding_failure(monkeypatch):
+    mock_document_pipeline(monkeypatch)
+
+    async def mock_embed_failure(**kwargs):
+        raise RuntimeError("Gemini embedding service unavailable.")
+
+    monkeypatch.setattr(
+        "app.api.documents.embed_texts",
+        mock_embed_failure,
+    )
+
     response = client.post(
         "/documents/upload",
         files={
-            "file": ("sample.txt", b"Some content", "text/plain")
+            "file": (
+                "sample.txt",
+                b"Sample document content.",
+                "text/plain",
+            )
         },
-        data={"strategy": "invalid"},
+        data={"strategy": "recursive"},
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 502
+    assert "Gemini embedding service unavailable" in response.json()["detail"]
+
+
+def test_upload_document_metadata_failure_cleans_qdrant(monkeypatch):
+    mock_document_pipeline(monkeypatch)
+
+    mock_cleanup = AsyncMock()
+
+    async def mock_create_document_failure(**kwargs):
+        raise RuntimeError("PostgreSQL unavailable.")
+
+    monkeypatch.setattr(
+        "app.api.documents.create_document",
+        mock_create_document_failure,
+    )
+
+    monkeypatch.setattr(
+        "app.api.documents.delete_document_chunks",
+        mock_cleanup,
+    )
+
+    response = client.post(
+        "/documents/upload",
+        files={
+            "file": (
+                "sample.txt",
+                b"Sample document content.",
+                "text/plain",
+            )
+        },
+        data={"strategy": "recursive"},
+    )
+
+    assert response.status_code == 500
+    assert "Qdrant chunks were cleaned up" in response.json()["detail"]
+
+    mock_cleanup.assert_awaited_once()
+
+    cleanup_uuid = mock_cleanup.await_args.kwargs["document_uuid"]
+    assert cleanup_uuid
+
+
+def test_upload_document_cleanup_failure(monkeypatch):
+    mock_document_pipeline(monkeypatch)
+
+    async def mock_create_document_failure(**kwargs):
+        raise RuntimeError("PostgreSQL unavailable.")
+
+    async def mock_cleanup_failure(**kwargs):
+        raise RuntimeError("Qdrant unavailable.")
+
+    monkeypatch.setattr(
+        "app.api.documents.create_document",
+        mock_create_document_failure,
+    )
+
+    monkeypatch.setattr(
+        "app.api.documents.delete_document_chunks",
+        mock_cleanup_failure,
+    )
+
+    response = client.post(
+        "/documents/upload",
+        files={
+            "file": (
+                "sample.txt",
+                b"Sample document content.",
+                "text/plain",
+            )
+        },
+        data={"strategy": "recursive"},
+    )
+
+    assert response.status_code == 500
+    assert "Qdrant cleanup also failed" in response.json()["detail"]
