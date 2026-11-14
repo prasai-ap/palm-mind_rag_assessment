@@ -13,6 +13,7 @@ class DocumentChunk(BaseModel):
 ChunkingStrategy = Literal["fixed", "recursive"]
 
 class DocumentUploadResponse(BaseModel):
+    document_uuid: str
     filename: str
     pages_extracted: int
     chunks_created: int

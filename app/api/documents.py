@@ -1,32 +1,31 @@
+import logging
+from pathlib import Path
+from uuid import uuid4
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.schemas.document import (
-    ChunkingStrategy,
-    DocumentUploadResponse,
-)
+from app.database.session import get_db
+from app.repositories.document_repository import create_document
+from app.schemas.document import ChunkingStrategy, DocumentUploadResponse
 from app.services.document_processor import extract_document
 from app.services.chunking import chunk_document
 from app.services.embedding_service import embed_texts
-from app.services.qdrant_service import store_chunks
-
-from uuid import uuid4
-
-document_uuid= str(uuid4())
-
-router = APIRouter(
-    prefix="/documents",
-    tags=["Documents"],
+from app.services.qdrant_service import (
+    store_chunks,
+    delete_document_chunks,
 )
 
+logger = logging.getLogger(__name__)
 
-@router.post(
-    "/upload",
-    response_model=DocumentUploadResponse,
-)
+router = APIRouter(prefix="/documents", tags=["Documents"])
+
+
+@router.post("/upload", response_model=DocumentUploadResponse)
 async def upload_document(
     file: UploadFile = File(...),
     strategy: ChunkingStrategy = Form("recursive"),
+    db: AsyncSession = Depends(get_db),
 ) -> DocumentUploadResponse:
 
     if not file.filename:
@@ -36,18 +35,16 @@ async def upload_document(
         )
 
     filename = file.filename
+    document_uuid = str(uuid4())
 
     try:
-        # 1. Read uploaded file.
         file_content = await file.read()
 
-        # 2. Extract document text.
         pages = extract_document(
             file_content=file_content,
             filename=filename,
         )
 
-        # 3. Split extracted text into chunks.
         chunks = chunk_document(
             pages=pages,
             strategy=strategy,
@@ -56,20 +53,61 @@ async def upload_document(
         if not chunks:
             raise ValueError("No document chunks were generated.")
 
-        # 4. Generate embeddings.
         vectors = await embed_texts(
             texts=[chunk.text for chunk in chunks],
             task_type="RETRIEVAL_DOCUMENT",
         )
 
-        # 5. Store chunks and embeddings in Qdrant.
         await store_chunks(
             chunks=chunks,
             vectors=vectors,
             document_uuid=document_uuid,
         )
 
+        try:
+            await create_document(
+                db=db,
+                document_uuid=document_uuid,
+                filename=filename,
+                file_type=Path(filename).suffix.lower(),
+                pages_extracted=len(pages),
+                chunks_created=len(chunks),
+                chunking_strategy=strategy,
+            )
+
+        except Exception as exc:
+            logger.exception(
+                "Failed to save document metadata for %s",
+                document_uuid,
+            )
+
+            try:
+                await delete_document_chunks(document_uuid)
+
+            except Exception as cleanup_exc:
+                logger.exception(
+                    "Failed to clean up Qdrant chunks for %s",
+                    document_uuid,
+                )
+
+                raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        "Document metadata could not be saved, "
+                        "and Qdrant cleanup also failed."
+                    ),
+                ) from cleanup_exc
+
+            raise HTTPException(
+                status_code=500,
+                detail=(
+                    "Document metadata could not be saved. "
+                    "Qdrant chunks were cleaned up."
+                ),
+            ) from exc
+
         return DocumentUploadResponse(
+            document_uuid=document_uuid,
             filename=filename,
             pages_extracted=len(pages),
             chunks_created=len(chunks),
