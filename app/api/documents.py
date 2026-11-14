@@ -18,6 +18,8 @@ from app.services.qdrant_service import (
 
 logger = logging.getLogger(__name__)
 
+MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
 
@@ -38,7 +40,13 @@ async def upload_document(
     document_uuid = str(uuid4())
 
     try:
-        file_content = await file.read()
+        file_content = await file.read(MAX_UPLOAD_SIZE_BYTES + 1)
+
+        if len(file_content) > MAX_UPLOAD_SIZE_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail="File size exceeds the maximum allowed limit of 10 MB.",
+            )
 
         pages = extract_document(
             file_content=file_content,
