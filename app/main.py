@@ -12,6 +12,8 @@ from app.services.qdrant_service import (
     close_qdrant,
 )
 
+from app.api.documents import router as documents_router
+
 
 settings = get_settings()
 
@@ -48,6 +50,8 @@ app = FastAPI(
     debug=settings.debug,
     lifespan=lifespan,
 )
+
+app.include_router(documents_router)
 
 
 @app.get("/health")
