@@ -386,7 +386,4 @@ The implementation is designed as an internship technical assessment project dem
 ## Author
 
 **Aayus Prasai**
-
-Software Engineer | AI/ML & Backend
-
 GitHub: [github.com/prasai-ap](https://github.com/prasai-ap)
