@@ -17,6 +17,7 @@ def test_prompt_includes_latest_message():
 
     assert "I want to schedule an interview." in prompt
     assert "booking_requested" in prompt
+    assert "user_confirmed" in prompt
     assert "Never invent or assume" in prompt
 
 
@@ -40,6 +41,7 @@ def test_prompt_includes_conversation_history():
 async def test_extract_booking_details(monkeypatch):
     expected = InterviewBookingExtraction(
         booking_requested=True,
+        user_confirmed=True,
         name="Aayus Prasai",
         email="aayus@example.com",
         interview_date=date(2026, 11, 20),

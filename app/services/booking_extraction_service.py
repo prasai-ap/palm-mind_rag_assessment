@@ -20,6 +20,8 @@ booking and extract information they have explicitly provided.
 Extract these fields:
 - booking_requested: whether the user is requesting to arrange or confirm
   an interview booking
+- user_confirmed: whether the user explicitly confirms the proposed
+  interview booking in their latest message.
 - name: the candidate's name
 - email: the candidate's email address
 - interview_date: the interview date in YYYY-MM-DD format
@@ -36,6 +38,14 @@ Rules:
    even if the user has not provided all the details.
 7. Do not consider a booking confirmed just because all fields are present.
 8. Return only the structured data matching the required schema.
+9. Set user_confirmed to true only when the latest user message
+   clearly confirms the booking.
+10. A message such as "yes", "confirm", or "book it" can confirm
+   a booking when the conversation history shows that the assistant
+   explicitly requested confirmation.
+11. Never interpret providing personal details as confirmation.
+12. Never interpret the assistant's own message as user confirmation.
+13. If confirmation is ambiguous, return false.
 
 CONVERSATION HISTORY:
 {history_text or "No previous conversation."}

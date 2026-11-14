@@ -72,3 +72,11 @@ def test_blank_name_becomes_none():
     )
 
     assert booking.name is None
+
+def test_booking_confirmation_defaults_to_false():
+    booking = InterviewBookingExtraction(
+        booking_requested=True,
+        name="Aayus Prasai",
+    )
+
+    assert booking.user_confirmed is False

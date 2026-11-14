@@ -6,6 +6,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 class InterviewBookingExtraction(BaseModel):
     booking_requested: bool = False
+    user_confirmed: bool = False
     name: str | None = Field(default=None, max_length=150)
     email: EmailStr | None = None
     interview_date: date | None = None
