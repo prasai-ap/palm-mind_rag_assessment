@@ -1,5 +1,5 @@
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 from fastapi.testclient import TestClient
 
@@ -232,3 +232,45 @@ def test_upload_document_cleanup_failure(monkeypatch):
 
     assert response.status_code == 500
     assert "Qdrant cleanup also failed" in response.json()["detail"]
+
+
+def test_upload_document_rejects_oversized_file(monkeypatch):
+    mock_document_pipeline(monkeypatch)
+
+    mock_extract = Mock()
+    mock_embed = AsyncMock()
+    mock_store = AsyncMock()
+
+    monkeypatch.setattr(
+        "app.api.documents.extract_document",
+        mock_extract,
+    )
+    monkeypatch.setattr(
+        "app.api.documents.embed_texts",
+        mock_embed,
+    )
+    monkeypatch.setattr(
+        "app.api.documents.store_chunks",
+        mock_store,
+    )
+
+    oversized_content = b"a" * (10 * 1024 * 1024 + 1)
+
+    response = client.post(
+        "/documents/upload",
+        files={
+            "file": (
+                "large.txt",
+                oversized_content,
+                "text/plain",
+            )
+        },
+        data={"strategy": "recursive"},
+    )
+
+    assert response.status_code == 413
+    assert "10 MB" in response.json()["detail"]
+
+    mock_extract.assert_not_called()
+    mock_embed.assert_not_awaited()
+    mock_store.assert_not_awaited()
