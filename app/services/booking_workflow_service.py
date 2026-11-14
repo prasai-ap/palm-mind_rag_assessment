@@ -30,6 +30,13 @@ async def process_booking_message(
     message: str,
     conversation_history: list[dict[str, str]],
 ) -> str | None:
+    
+    if (
+        _is_explicit_confirmation(message)
+        and not _previous_message_requested_confirmation(conversation_history)
+    ):
+        return None
+    
     extraction: InterviewBookingExtraction = await extract_booking_details(
         message=message,
         conversation_history=conversation_history,

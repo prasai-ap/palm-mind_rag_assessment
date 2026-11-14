@@ -149,19 +149,11 @@ async def test_confirmed_booking_is_saved(monkeypatch):
 async def test_confirmation_without_previous_request_does_not_save(
     monkeypatch,
 ):
-    async def mock_extract(**kwargs):
-        return InterviewBookingExtraction(
-            booking_requested=True,
-            user_confirmed=True,
-            name="Aayus Prasai",
-            email="aayus@example.com",
-            interview_date=date(2026, 11, 20),
-            interview_time=time(14, 30),
-        )
+    extraction_mock = AsyncMock()
 
     monkeypatch.setattr(
         "app.services.booking_workflow_service.extract_booking_details",
-        mock_extract,
+        extraction_mock,
     )
 
     create_mock = AsyncMock()
@@ -178,5 +170,6 @@ async def test_confirmation_without_previous_request_does_not_save(
         conversation_history=[],
     )
 
-    assert "reply CONFIRM" in result
+    assert result is None
+    extraction_mock.assert_not_awaited()
     create_mock.assert_not_awaited()
